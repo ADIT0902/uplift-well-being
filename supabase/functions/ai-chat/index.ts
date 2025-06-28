@@ -1,12 +1,11 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
 };
 
 interface ChatMessage {
@@ -14,19 +13,24 @@ interface ChatMessage {
   content: string;
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   console.log('AI Chat function called with method:', req.method);
   
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { 
+      headers: corsHeaders,
+      status: 200 
+    });
   }
 
   try {
     // Check if API key exists
     if (!geminiApiKey) {
       console.error('Gemini API key not found in environment variables');
-      return new Response(JSON.stringify({ error: 'Gemini API key not configured' }), {
+      return new Response(JSON.stringify({ 
+        error: 'AI service is currently unavailable. Please try again later.' 
+      }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -35,14 +39,16 @@ serve(async (req) => {
     console.log('Gemini API key found, processing request...');
 
     const requestBody = await req.text();
-    console.log('Raw request body:', requestBody);
+    console.log('Raw request body received');
     
     let parsedBody;
     try {
       parsedBody = JSON.parse(requestBody);
     } catch (parseError) {
       console.error('Failed to parse request body:', parseError);
-      return new Response(JSON.stringify({ error: 'Invalid JSON in request body' }), {
+      return new Response(JSON.stringify({ 
+        error: 'Invalid request format. Please try again.' 
+      }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -52,7 +58,9 @@ serve(async (req) => {
 
     if (!messages || !Array.isArray(messages)) {
       console.error('Messages validation failed:', { messages });
-      return new Response(JSON.stringify({ error: 'Messages array is required' }), {
+      return new Response(JSON.stringify({ 
+        error: 'Invalid message format. Please try again.' 
+      }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -60,24 +68,42 @@ serve(async (req) => {
 
     console.log('Processing chat request with', messages.length, 'messages');
 
-    // Convert messages to Gemini format
-    const systemPrompt = `You are Uplift AI, a compassionate mental health and wellness assistant. You provide supportive, empathetic responses to help users with their mental health journey. 
+    // Enhanced system prompt for better mental health support
+    const systemPrompt = `You are Uplift AI, a compassionate and knowledgeable mental health and wellness assistant. Your primary goal is to provide supportive, empathetic, and helpful responses to users on their mental health journey.
 
-Key guidelines:
-- Be warm, understanding, and non-judgmental
-- Provide practical wellness tips and coping strategies
-- Encourage users to seek professional help when needed
+Core Guidelines:
+- Be warm, understanding, and non-judgmental in all interactions
+- Provide practical, evidence-based wellness tips and coping strategies
+- Encourage professional help when appropriate, especially for serious concerns
 - Never provide medical diagnoses or replace professional therapy
-- Focus on mindfulness, self-care, and positive mental health practices
-- Keep responses concise but helpful
-- If someone expresses serious mental health concerns or suicidal thoughts, encourage them to seek immediate professional help
+- Focus on mindfulness, self-care, positive mental health practices, and resilience building
+- Keep responses helpful but concise (aim for 2-3 paragraphs maximum)
+- Use encouraging and hopeful language while validating feelings
+- Offer specific, actionable suggestions when possible
 
-Your goal is to be a supportive companion on their wellness journey.`;
+Safety Protocols:
+- If someone expresses suicidal thoughts or self-harm, immediately encourage them to seek professional help
+- Provide crisis resources: "Please reach out for immediate help: Call 988 (US), text HOME to 741741, or contact emergency services"
+- For serious mental health concerns, always recommend professional support
 
-    // Build conversation history for Gemini
+Your role is to be a supportive companion, offering guidance, encouragement, and practical tools for mental wellness while maintaining appropriate boundaries.`;
+
+    // Get the latest user message
+    const latestMessage = messages[messages.length - 1];
+    if (!latestMessage || latestMessage.role !== 'user') {
+      return new Response(JSON.stringify({ 
+        error: 'Please provide a message to get started.' 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Build conversation context (last 5 messages for context)
+    const recentMessages = messages.slice(-5);
     let conversationText = systemPrompt + "\n\nConversation:\n";
     
-    messages.forEach(msg => {
+    recentMessages.forEach(msg => {
       if (msg.role === 'user') {
         conversationText += `User: ${msg.content}\n`;
       } else if (msg.role === 'assistant') {
@@ -97,8 +123,27 @@ Your goal is to be a supportive companion on their wellness journey.`;
         temperature: 0.7,
         topK: 40,
         topP: 0.95,
-        maxOutputTokens: 500,
-      }
+        maxOutputTokens: 800,
+        stopSequences: ["User:", "Assistant:"]
+      },
+      safetySettings: [
+        {
+          category: "HARM_CATEGORY_HARASSMENT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+        },
+        {
+          category: "HARM_CATEGORY_HATE_SPEECH",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+        },
+        {
+          category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+        },
+        {
+          category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+        }
+      ]
     };
 
     console.log('Sending request to Gemini API...');
@@ -117,19 +162,17 @@ Your goal is to be a supportive companion on their wellness journey.`;
       const errorText = await response.text();
       console.error('Gemini API error:', response.status, errorText);
       
-      let errorMessage = 'Gemini API request failed';
+      let errorMessage = 'I\'m having trouble responding right now. Please try again in a moment.';
       if (response.status === 400) {
-        errorMessage = 'Invalid request to Gemini API';
+        errorMessage = 'I couldn\'t process your message. Could you try rephrasing it?';
       } else if (response.status === 403) {
-        errorMessage = 'Gemini API access forbidden - check API key';
+        errorMessage = 'AI service is temporarily unavailable. Please try again later.';
       } else if (response.status === 429) {
-        errorMessage = 'Gemini API rate limit exceeded';
-      } else if (response.status === 500) {
-        errorMessage = 'Gemini API server error';
+        errorMessage = 'I\'m getting a lot of requests right now. Please wait a moment and try again.';
       }
       
       return new Response(JSON.stringify({ error: errorMessage }), {
-        status: response.status,
+        status: 200, // Return 200 to avoid frontend errors
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -137,24 +180,57 @@ Your goal is to be a supportive companion on their wellness journey.`;
     const data = await response.json();
     console.log('Gemini API response received successfully');
     
-    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
+    // Enhanced response validation
+    if (!data.candidates || 
+        !data.candidates[0] || 
+        !data.candidates[0].content || 
+        !data.candidates[0].content.parts || 
+        !data.candidates[0].content.parts[0] ||
+        !data.candidates[0].content.parts[0].text) {
+      
       console.error('Invalid response format from Gemini:', data);
-      return new Response(JSON.stringify({ error: 'Invalid response format from Gemini' }), {
-        status: 500,
+      
+      // Check if content was blocked
+      if (data.candidates && data.candidates[0] && data.candidates[0].finishReason === 'SAFETY') {
+        return new Response(JSON.stringify({ 
+          response: "I understand you're reaching out, and I want to help. For your safety and wellbeing, I'd recommend speaking with a mental health professional who can provide the best support. If you're in crisis, please contact 988 (US) or your local emergency services." 
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      return new Response(JSON.stringify({ 
+        response: "I'm here to support you, but I'm having trouble generating a response right now. Please try asking your question in a different way, or feel free to reach out to a mental health professional for immediate support." 
+      }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const aiResponse = data.candidates[0].content.parts[0].text;
+    let aiResponse = data.candidates[0].content.parts[0].text.trim();
+    
+    // Clean up the response
+    aiResponse = aiResponse.replace(/^Assistant:\s*/, '');
+    aiResponse = aiResponse.replace(/\n\s*User:.*$/, '');
+    
+    // Ensure response isn't empty
+    if (!aiResponse || aiResponse.length < 10) {
+      aiResponse = "I'm here to support you on your wellness journey. Could you tell me a bit more about what's on your mind today?";
+    }
+
     console.log('AI Chat response generated successfully');
 
     return new Response(JSON.stringify({ response: aiResponse }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
+    
   } catch (error) {
     console.error('Error in ai-chat function:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
+    
+    // Return a helpful error message instead of technical details
+    return new Response(JSON.stringify({ 
+      response: "I'm experiencing some technical difficulties right now. Please try again in a moment, or if you need immediate support, consider reaching out to a mental health professional or crisis helpline." 
+    }), {
+      status: 200, // Return 200 to avoid frontend errors
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

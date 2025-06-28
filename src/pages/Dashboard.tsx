@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Heart, Brain, Calendar, Target, Users, BookOpen, Plus, LogOut, Bot } from "lucide-react";
+import { Heart, Brain, Calendar, Target, Users, BookOpen, Plus, LogOut, Bot, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
@@ -12,6 +11,8 @@ import JournalEntry from "@/components/JournalEntry";
 import MeditationTimer from "@/components/MeditationTimer";
 import WellnessGoals from "@/components/WellnessGoals";
 import AIChat from "@/components/AIChat";
+import CommunityForum from "@/components/CommunityForum";
+import CrisisResources from "@/components/CrisisResources";
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -87,6 +88,7 @@ const Dashboard = () => {
     { id: 'goals', label: 'Goals', icon: Target },
     { id: 'ai-chat', label: 'AI Assistant', icon: Bot },
     { id: 'community', label: 'Community', icon: Users },
+    { id: 'crisis', label: 'Crisis Support', icon: AlertTriangle },
   ];
 
   if (!user) {
@@ -183,6 +185,39 @@ const Dashboard = () => {
                   <AIChat compact={true} />
                 </CardContent>
               </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Users className="h-5 w-5 text-orange-500" />
+                    <span>Community</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CommunityForum compact={true} />
+                </CardContent>
+              </Card>
+
+              <Card className="border-red-200 bg-red-50">
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2 text-red-800">
+                    <AlertTriangle className="h-5 w-5 text-red-600" />
+                    <span>Crisis Support</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-red-700 mb-3">
+                    24/7 support available if you need immediate help
+                  </p>
+                  <Button 
+                    size="sm" 
+                    onClick={() => setActiveTab('crisis')}
+                    className="bg-red-600 hover:bg-red-700"
+                  >
+                    Get Help Now
+                  </Button>
+                </CardContent>
+              </Card>
             </div>
           )}
 
@@ -191,25 +226,8 @@ const Dashboard = () => {
           {activeTab === 'meditation' && <MeditationTimer />}
           {activeTab === 'goals' && <WellnessGoals />}
           {activeTab === 'ai-chat' && <AIChat />}
-          {activeTab === 'community' && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Community Support</CardTitle>
-                <CardDescription>
-                  Connect with others on their wellness journey
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8">
-                  <Users className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600 mb-4">Community features coming soon!</p>
-                  <p className="text-sm text-gray-500">
-                    Share experiences, find support, and celebrate milestones together.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          {activeTab === 'community' && <CommunityForum />}
+          {activeTab === 'crisis' && <CrisisResources />}
         </div>
       </div>
     </div>
