@@ -26,10 +26,13 @@ const Auth = () => {
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
-    // Check for password reset parameters in URL
-    const accessToken = searchParams.get('access_token');
-    const refreshToken = searchParams.get('refresh_token');
-    const type = searchParams.get('type');
+    // Check for password reset parameters in URL (both query params and hash fragments)
+    const urlParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    
+    const accessToken = urlParams.get('access_token') || hashParams.get('access_token');
+    const refreshToken = urlParams.get('refresh_token') || hashParams.get('refresh_token');
+    const type = urlParams.get('type') || hashParams.get('type');
     
     if (type === 'recovery' && accessToken && refreshToken) {
       // Set the session with the tokens from the URL
@@ -38,6 +41,8 @@ const Auth = () => {
         refresh_token: refreshToken,
       }).then(() => {
         setMode('reset-password');
+        // Clean up the URL
+        window.history.replaceState({}, document.title, '/auth');
       });
       return;
     }
