@@ -7,28 +7,47 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Heart, Mail, Lock, User, ArrowLeft, CheckCircle, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 const Auth = () => {
-  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot-password' | 'verify-email'>('signin');
+  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot-password' | 'verify-email' | 'reset-password'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [resetEmailSent, setResetEmailSent] = useState(false);
   const [verificationEmailSent, setVerificationEmailSent] = useState(false);
+  const [passwordResetSuccess, setPasswordResetSuccess] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
+    // Check for password reset parameters in URL
+    const accessToken = searchParams.get('access_token');
+    const refreshToken = searchParams.get('refresh_token');
+    const type = searchParams.get('type');
+    
+    if (type === 'recovery' && accessToken && refreshToken) {
+      // Set the session with the tokens from the URL
+      supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      }).then(() => {
+        setMode('reset-password');
+      });
+      return;
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         console.log('Auth state changed:', event, session?.user?.email_confirmed_at);
         setUser(session?.user ?? null);
         
-        if (session?.user) {
+        if (session?.user && mode !== 'reset-password') {
           // Check if email is confirmed
           if (session.user.email_confirmed_at) {
             navigate('/dashboard');
@@ -46,7 +65,7 @@ const Auth = () => {
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
-      if (session?.user) {
+      if (session?.user && mode !== 'reset-password') {
         if (session.user.email_confirmed_at) {
           navigate('/dashboard');
         } else {
@@ -56,7 +75,7 @@ const Auth = () => {
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate, toast]);
+  }, [navigate, toast, searchParams, mode]);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -175,7 +194,7 @@ const Auth = () => {
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth`,
+        redirectTo: `${window.location.origin}/auth?type=recovery`,
       });
 
       if (error) throw error;
@@ -188,6 +207,68 @@ const Auth = () => {
     } catch (error: any) {
       toast({
         title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!password.trim() || !confirmPassword.trim()) {
+      toast({
+        title: "Please fill in all fields",
+        description: "Both password fields are required.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      toast({
+        title: "Passwords don't match",
+        description: "Please make sure both passwords are the same.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (password.length < 6) {
+      toast({
+        title: "Password too short",
+        description: "Password must be at least 6 characters long.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: password
+      });
+
+      if (error) throw error;
+
+      setPasswordResetSuccess(true);
+      toast({
+        title: "Password updated successfully!",
+        description: "You can now sign in with your new password.",
+      });
+
+      // Clear the URL parameters and redirect to sign in after a delay
+      setTimeout(() => {
+        window.history.replaceState({}, document.title, '/auth');
+        setMode('signin');
+        setPassword('');
+        setConfirmPassword('');
+      }, 2000);
+    } catch (error: any) {
+      toast({
+        title: "Error updating password",
         description: error.message,
         variant: "destructive",
       });
@@ -435,11 +516,65 @@ const Auth = () => {
     </div>
   );
 
+  const renderResetPasswordForm = () => (
+    <div className="space-y-4">
+      {!passwordResetSuccess ? (
+        <form onSubmit={handleResetPassword} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="newPassword">New Password</Label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Input
+                id="newPassword"
+                type="password"
+                placeholder="Enter your new password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="pl-10"
+                minLength={6}
+                required
+              />
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="confirmPassword">Confirm New Password</Label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="Confirm your new password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="pl-10"
+                minLength={6}
+                required
+              />
+            </div>
+          </div>
+          
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? 'Updating...' : 'Update Password'}
+          </Button>
+        </form>
+      ) : (
+        <Alert>
+          <CheckCircle className="h-4 w-4" />
+          <AlertDescription>
+            Password updated successfully! Redirecting to sign in...
+          </AlertDescription>
+        </Alert>
+      )}
+    </div>
+  );
+
   const getTitle = () => {
     switch (mode) {
       case 'signup': return 'Join Uplift';
       case 'forgot-password': return 'Reset Password';
       case 'verify-email': return 'Verify Your Email';
+      case 'reset-password': return 'Set New Password';
       default: return 'Welcome Back';
     }
   };
@@ -449,6 +584,7 @@ const Auth = () => {
       case 'signup': return 'Create your account to start your wellness journey';
       case 'forgot-password': return 'Enter your email to receive a password reset link';
       case 'verify-email': return 'We\'ve sent you a verification email';
+      case 'reset-password': return 'Enter your new password below';
       default: return 'Sign in to continue your wellness journey';
     }
   };
@@ -472,6 +608,7 @@ const Auth = () => {
           {mode === 'signup' && renderSignUpForm()}
           {mode === 'forgot-password' && renderForgotPasswordForm()}
           {mode === 'verify-email' && renderVerifyEmailForm()}
+          {mode === 'reset-password' && renderResetPasswordForm()}
         </CardContent>
       </Card>
     </div>
