@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BookOpen, Plus, Edit, Trash2, Lock, Unlock } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { apiClient } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
 const JournalEntry = () => {
@@ -24,12 +24,7 @@ const JournalEntry = () => {
 
   const fetchEntries = async () => {
     try {
-      const { data, error } = await supabase
-        .from('journal_entries')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
+      const data: any = await apiClient.getJournalEntries();
       setEntries(data || []);
     } catch (error: any) {
       console.error('Error fetching journal entries:', error);
@@ -50,23 +45,14 @@ const JournalEntry = () => {
 
     setLoading(true);
     try {
-      const userData = await supabase.auth.getUser();
-      const userId = userData.data.user?.id;
-
       if (editingId) {
         // Update existing entry
-        const { error } = await supabase
-          .from('journal_entries')
-          .update({
-            title: title.trim(),
-            content: content.trim(),
-            mood_rating: moodRating ? parseInt(moodRating) : null,
-            is_private: isPrivate,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', editingId);
-
-        if (error) throw error;
+        await apiClient.updateJournalEntry(editingId, {
+          title: title.trim(),
+          content: content.trim(),
+          moodRating: moodRating ? parseInt(moodRating) : undefined,
+          isPrivate: isPrivate,
+        });
 
         toast({
           title: "Entry updated!",
@@ -74,17 +60,12 @@ const JournalEntry = () => {
         });
       } else {
         // Create new entry
-        const { error } = await supabase
-          .from('journal_entries')
-          .insert({
-            user_id: userId,
-            title: title.trim(),
-            content: content.trim(),
-            mood_rating: moodRating ? parseInt(moodRating) : null,
-            is_private: isPrivate,
-          });
-
-        if (error) throw error;
+        await apiClient.createJournalEntry({
+          title: title.trim(),
+          content: content.trim(),
+          moodRating: moodRating ? parseInt(moodRating) : undefined,
+          isPrivate: isPrivate,
+        });
 
         toast({
           title: "Entry saved!",
@@ -113,8 +94,8 @@ const JournalEntry = () => {
   const handleEdit = (entry: any) => {
     setTitle(entry.title);
     setContent(entry.content);
-    setMoodRating(entry.mood_rating?.toString() || '');
-    setIsPrivate(entry.is_private);
+    setMoodRating(entry.moodRating?.toString() || '');
+    setIsPrivate(entry.isPrivate);
     setEditingId(entry.id);
   };
 
@@ -122,12 +103,7 @@ const JournalEntry = () => {
     if (!confirm('Are you sure you want to delete this entry?')) return;
 
     try {
-      const { error } = await supabase
-        .from('journal_entries')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
+      await apiClient.deleteJournalEntry(id);
 
       toast({
         title: "Entry deleted",
@@ -244,11 +220,11 @@ const JournalEntry = () => {
                   <div>
                     <CardTitle className="text-lg">{entry.title}</CardTitle>
                     <CardDescription className="flex items-center space-x-2">
-                      <span>{new Date(entry.created_at).toLocaleDateString()}</span>
-                      {entry.mood_rating && (
-                        <span className="text-sm">• Mood: {entry.mood_rating}/5</span>
+                      <span>{new Date(entry.createdAt).toLocaleDateString()}</span>
+                      {entry.moodRating && (
+                        <span className="text-sm">• Mood: {entry.moodRating}/5</span>
                       )}
-                      {entry.is_private && <Lock className="h-3 w-3" />}
+                      {entry.isPrivate && <Lock className="h-3 w-3" />}
                     </CardDescription>
                   </div>
                   <div className="flex space-x-2">
@@ -271,9 +247,9 @@ const JournalEntry = () => {
               </CardHeader>
               <CardContent>
                 <p className="text-gray-700 whitespace-pre-wrap">{entry.content}</p>
-                {entry.updated_at !== entry.created_at && (
+                {entry.updatedAt !== entry.createdAt && (
                   <p className="text-xs text-gray-500 mt-2">
-                    Last updated: {new Date(entry.updated_at).toLocaleDateString()}
+                    Last updated: {new Date(entry.updatedAt).toLocaleDateString()}
                   </p>
                 )}
               </CardContent>

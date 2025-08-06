@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Play, Pause, Square, RotateCcw, Waves, Heart, Leaf } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { apiClient } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
 interface MeditationTimerProps {
@@ -77,13 +77,7 @@ const MeditationTimer = ({ compact = false }: MeditationTimerProps) => {
 
   const fetchRecentSessions = async () => {
     try {
-      const { data, error } = await supabase
-        .from('meditation_sessions')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(5);
-
-      if (error) throw error;
+      const data: any = await apiClient.getMeditationSessions({ limit: 5 });
       setRecentSessions(data || []);
     } catch (error: any) {
       console.error('Error fetching meditation sessions:', error);
@@ -110,22 +104,15 @@ const MeditationTimer = ({ compact = false }: MeditationTimerProps) => {
   const saveSession = async () => {
     setLoading(true);
     try {
-      const userData = await supabase.auth.getUser();
-      const userId = userData.data.user?.id;
       const originalDuration = parseInt(selectedDuration);
       const actualDuration = Math.ceil((originalDuration * 60 - timeLeft) / 60);
 
-      const { error } = await supabase
-        .from('meditation_sessions')
-        .insert({
-          user_id: userId,
-          session_type: selectedType,
-          duration_minutes: actualDuration,
-          completed: isCompleted,
-          notes: notes.trim() || null,
-        });
-
-      if (error) throw error;
+      await apiClient.createMeditationSession({
+        sessionType: selectedType,
+        durationMinutes: actualDuration,
+        completed: isCompleted,
+        notes: notes.trim() || undefined,
+      });
 
       toast({
         title: "Session saved!",
@@ -314,10 +301,10 @@ const MeditationTimer = ({ compact = false }: MeditationTimerProps) => {
                 <div key={session.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div>
                     <div className="font-medium capitalize">
-                      {session.session_type.replace('-', ' ')}
+                      {session.sessionType.replace('-', ' ')}
                     </div>
                     <div className="text-sm text-gray-600">
-                      {session.duration_minutes} minutes • {new Date(session.created_at).toLocaleDateString()}
+                      {session.durationMinutes} minutes • {new Date(session.createdAt).toLocaleDateString()}
                     </div>
                     {session.notes && (
                       <div className="text-sm text-gray-700 mt-1">{session.notes}</div>

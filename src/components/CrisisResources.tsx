@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Phone, Globe, MapPin, AlertTriangle, Heart } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { apiClient } from "@/lib/api";
 
 const CrisisResources = () => {
   const [resources, setResources] = useState<any[]>([]);
@@ -15,13 +15,7 @@ const CrisisResources = () => {
 
   const fetchResources = async () => {
     try {
-      const { data, error } = await supabase
-        .from('crisis_resources')
-        .select('*')
-        .eq('is_active', true)
-        .order('country', { ascending: true });
-
-      if (error) throw error;
+      const data: any = await apiClient.getCrisisResources();
       setResources(data || []);
     } catch (error: any) {
       console.error('Error fetching crisis resources:', error);
@@ -108,23 +102,23 @@ const CrisisResources = () => {
               </CardDescription>
               
               <div className="flex flex-wrap gap-3">
-                {resource.phone_number && (
+                {resource.phoneNumber && (
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => window.open(`tel:${resource.phone_number}`, '_self')}
+                    onClick={() => window.open(`tel:${resource.phoneNumber}`, '_self')}
                     className="flex items-center space-x-2"
                   >
                     <Phone className="h-4 w-4" />
-                    <span>{resource.phone_number}</span>
+                    <span>{resource.phoneNumber}</span>
                   </Button>
                 )}
                 
-                {resource.website_url && (
+                {resource.websiteUrl && (
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => window.open(resource.website_url, '_blank')}
+                    onClick={() => window.open(resource.websiteUrl, '_blank')}
                     className="flex items-center space-x-2"
                   >
                     <Globe className="h-4 w-4" />

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Smile, Frown, Meh, Heart, Zap, Sun, Cloud, CloudRain } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { apiClient } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
 interface MoodTrackerProps {
@@ -41,13 +41,7 @@ const MoodTracker = ({ compact = false }: MoodTrackerProps) => {
 
   const fetchRecentEntries = async () => {
     try {
-      const { data, error } = await supabase
-        .from('mood_entries')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(5);
-
-      if (error) throw error;
+      const data: any = await apiClient.getMoodEntries({ limit: 5 });
       setRecentEntries(data || []);
     } catch (error: any) {
       console.error('Error fetching mood entries:', error);
@@ -66,16 +60,11 @@ const MoodTracker = ({ compact = false }: MoodTrackerProps) => {
 
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('mood_entries')
-        .insert({
-          user_id: (await supabase.auth.getUser()).data.user?.id,
-          mood_level: selectedMood,
-          emotions: selectedEmotions,
-          notes: notes.trim() || null,
-        });
-
-      if (error) throw error;
+      await apiClient.createMoodEntry({
+        moodLevel: selectedMood,
+        emotions: selectedEmotions,
+        notes: notes.trim() || undefined,
+      });
 
       toast({
         title: "Mood logged successfully!",
@@ -206,7 +195,7 @@ const MoodTracker = ({ compact = false }: MoodTrackerProps) => {
           <CardContent>
             <div className="space-y-3">
               {recentEntries.map((entry) => {
-                const mood = moodOptions.find(m => m.value === entry.mood_level);
+                const mood = moodOptions.find(m => m.value === entry.moodLevel);
                 return (
                   <div key={entry.id} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
                     {mood && <mood.icon className={`h-5 w-5 mt-1 ${mood.color}`} />}
@@ -214,7 +203,7 @@ const MoodTracker = ({ compact = false }: MoodTrackerProps) => {
                       <div className="flex items-center space-x-2 mb-1">
                         <span className="font-medium">{mood?.label}</span>
                         <span className="text-sm text-gray-500">
-                          {new Date(entry.created_at).toLocaleDateString()}
+                          {new Date(entry.createdAt).toLocaleDateString()}
                         </span>
                       </div>
                       {entry.emotions.length > 0 && (

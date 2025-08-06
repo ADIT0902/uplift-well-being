@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Users, Plus, Heart, MessageCircle, Clock, User, Edit, Trash2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { apiClient } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 
@@ -43,18 +43,12 @@ const CommunityForum = ({ compact = false }: CommunityForumProps) => {
 
   const fetchPosts = async () => {
     try {
-      let query = supabase
-        .from('community_posts')
-        .select('*')
-        .order('created_at', { ascending: false });
-
+      const params: any = {};
       if (selectedCategory !== 'all') {
-        query = query.eq('category', selectedCategory);
+        params.category = selectedCategory;
       }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
+      
+      const data: any = await apiClient.getCommunityPosts(params);
       setPosts(data || []);
     } catch (error: any) {
       console.error('Error fetching community posts:', error);
@@ -75,39 +69,25 @@ const CommunityForum = ({ compact = false }: CommunityForumProps) => {
 
     setLoading(true);
     try {
-      const userData = await supabase.auth.getUser();
-      const userId = userData.data.user?.id;
-
       if (editingId) {
-        const { error } = await supabase
-          .from('community_posts')
-          .update({
-            title: title.trim(),
-            content: content.trim(),
-            category,
-            is_anonymous: isAnonymous,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', editingId);
-
-        if (error) throw error;
+        await apiClient.updateCommunityPost(editingId, {
+          title: title.trim(),
+          content: content.trim(),
+          category,
+          isAnonymous: isAnonymous,
+        });
 
         toast({
           title: "Post updated!",
           description: "Your community post has been updated.",
         });
       } else {
-        const { error } = await supabase
-          .from('community_posts')
-          .insert({
-            user_id: userId,
-            title: title.trim(),
-            content: content.trim(),
-            category,
-            is_anonymous: isAnonymous,
-          });
-
-        if (error) throw error;
+        await apiClient.createCommunityPost({
+          title: title.trim(),
+          content: content.trim(),
+          category,
+          isAnonymous: isAnonymous,
+        });
 
         toast({
           title: "Post created!",
@@ -141,7 +121,7 @@ const CommunityForum = ({ compact = false }: CommunityForumProps) => {
     setTitle(post.title);
     setContent(post.content);
     setCategory(post.category);
-    setIsAnonymous(post.is_anonymous);
+    setIsAnonymous(post.isAnonymous);
     setEditingId(post.id);
     setShowForm(true);
   };
@@ -150,12 +130,7 @@ const CommunityForum = ({ compact = false }: CommunityForumProps) => {
     if (!confirm('Are you sure you want to delete this post?')) return;
 
     try {
-      const { error } = await supabase
-        .from('community_posts')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
+      await apiClient.deleteCommunityPost(id);
 
       toast({
         title: "Post deleted",
@@ -171,14 +146,9 @@ const CommunityForum = ({ compact = false }: CommunityForumProps) => {
     }
   };
 
-  const handleLike = async (postId: string, currentLikes: number) => {
+  const handleLike = async (postId: string) => {
     try {
-      const { error } = await supabase
-        .from('community_posts')
-        .update({ likes_count: currentLikes + 1 })
-        .eq('id', postId);
-
-      if (error) throw error;
+      await apiClient.likeCommunityPost(postId);
 
       fetchPosts();
     } catch (error: any) {
@@ -361,16 +331,16 @@ const CommunityForum = ({ compact = false }: CommunityForumProps) => {
                     <div className="flex items-center space-x-2 mb-2">
                       <Avatar className="h-8 w-8">
                         <AvatarFallback>
-                          {post.is_anonymous ? 'A' : 'U'}
+                          {post.isAnonymous ? 'A' : 'U'}
                         </AvatarFallback>
                       </Avatar>
                       <div>
                         <p className="text-sm font-medium">
-                          {post.is_anonymous ? 'Anonymous' : 'Community Member'}
+                          {post.isAnonymous ? 'Anonymous' : 'Community Member'}
                         </p>
                         <div className="flex items-center space-x-2 text-xs text-gray-500">
                           <Clock className="h-3 w-3" />
-                          <span>{formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}</span>
+                          <span>{formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}</span>
                         </div>
                       </div>
                     </div>
@@ -407,11 +377,11 @@ const CommunityForum = ({ compact = false }: CommunityForumProps) => {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleLike(post.id, post.likes_count)}
+                      onClick={() => handleLike(post.id)}
                       className="flex items-center space-x-1"
                     >
                       <Heart className="h-4 w-4" />
-                      <span>{post.likes_count}</span>
+                      <span>{post.likesCount}</span>
                     </Button>
                     <Button
                       variant="ghost"
@@ -423,9 +393,9 @@ const CommunityForum = ({ compact = false }: CommunityForumProps) => {
                     </Button>
                   </div>
                   
-                  {post.updated_at !== post.created_at && (
+                  {post.updatedAt !== post.createdAt && (
                     <p className="text-xs text-gray-500">
-                      Edited {formatDistanceToNow(new Date(post.updated_at), { addSuffix: true })}
+                      Edited {formatDistanceToNow(new Date(post.updatedAt), { addSuffix: true })}
                     </p>
                   )}
                 </div>

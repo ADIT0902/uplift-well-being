@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Bot, User, Send, Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { apiClient } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
 interface Message {
@@ -70,16 +70,9 @@ const AIChat: React.FC<AIChatProps> = ({ compact = false }) => {
 
       console.log('Chat history:', chatHistory);
 
-      const { data, error } = await supabase.functions.invoke('ai-chat', {
-        body: { messages: chatHistory }
-      });
-
-      console.log('Response from ai-chat function:', { data, error });
-
-      if (error) {
-        console.error('Supabase function error:', error);
-        throw new Error(error.message || 'Failed to get AI response');
-      }
+      const data: any = await apiClient.aiChat({ messages: chatHistory });
+      
+      console.log('Response from AI chat:', data);
 
       if (!data || !data.response) {
         console.error('Invalid response format:', data);

@@ -4,33 +4,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Heart, Brain, Users, BookOpen, Calendar, Shield, LogOut } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import type { User } from '@supabase/supabase-js';
 
 const Index = () => {
-  const [user, setUser] = useState<User | null>(null);
+  const { user, isAuthenticated, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setUser(session?.user ?? null);
-      }
-    );
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
   const handleSignOut = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      await signOut();
       
       toast({
         title: "Signed out successfully",
@@ -97,7 +81,7 @@ const Index = () => {
             <Link to="/about" className="text-gray-600 hover:text-gray-800 transition-colors">About</Link>
             <Link to="/resources" className="text-gray-600 hover:text-gray-800 transition-colors">Resources</Link>
             <Link to="/community" className="text-gray-600 hover:text-gray-800 transition-colors">Community</Link>
-            {user ? (
+            {isAuthenticated ? (
               <>
                 <Button asChild variant="outline">
                   <Link to="/dashboard">Dashboard</Link>
@@ -134,7 +118,7 @@ const Index = () => {
             No matter your age, background, or experience – you belong here.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            {user ? (
+            {isAuthenticated ? (
               <Button asChild size="lg" className="text-lg px-8 py-4">
                 <Link to="/dashboard">Go to Dashboard</Link>
               </Button>
@@ -192,7 +176,7 @@ const Index = () => {
             <p className="text-xl mb-8 text-pink-100">
               Join thousands who have already started their wellness journey with Uplift
             </p>
-            {user ? (
+            {isAuthenticated ? (
               <Button asChild size="lg" variant="secondary" className="text-lg px-8 py-4">
                 <Link to="/dashboard">Continue Your Journey</Link>
               </Button>

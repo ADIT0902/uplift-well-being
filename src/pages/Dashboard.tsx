@@ -2,10 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Heart, Brain, Calendar, Target, Users, BookOpen, Plus, LogOut, Bot, AlertTriangle } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import type { User } from '@supabase/supabase-js';
 import MoodTracker from "@/components/MoodTracker";
 import JournalEntry from "@/components/JournalEntry";
 import MeditationTimer from "@/components/MeditationTimer";
@@ -15,56 +14,20 @@ import CommunityForum from "@/components/CommunityForum";
 import CrisisResources from "@/components/CrisisResources";
 
 const Dashboard = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<any>(null);
+  const { user, isAuthenticated, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
   const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setUser(session?.user ?? null);
-        if (!session?.user) {
-          navigate('/auth');
-        }
-      }
-    );
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (!session?.user) {
-        navigate('/auth');
-      } else {
-        fetchProfile(session.user.id);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate]);
-
-  const fetchProfile = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        throw error;
-      }
-
-      setProfile(data);
-    } catch (error: any) {
-      console.error('Error fetching profile:', error);
+    if (!isAuthenticated) {
+      navigate('/auth');
     }
-  };
+  }, [isAuthenticated, navigate]);
 
   const handleSignOut = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      await signOut();
       
       toast({
         title: "Signed out successfully",
@@ -107,7 +70,7 @@ const Dashboard = () => {
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600">
-                Hello, {profile?.full_name || user.email}
+                Hello, {user?.fullName || user?.email}
               </span>
               <Button variant="outline" size="sm" onClick={handleSignOut}>
                 <LogOut className="h-4 w-4 mr-2" />

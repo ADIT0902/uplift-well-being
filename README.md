@@ -40,15 +40,16 @@ A comprehensive mental health and wellness platform designed to support users on
 - **Recharts** - Composable charting library for React
 
 ### Backend & Database
-- **Supabase** - Backend-as-a-Service with PostgreSQL database
-- **PostgreSQL** - Robust, ACID-compliant relational database
-- **Row Level Security (RLS)** - Database-level security policies
-- **Real-time subscriptions** - Live data updates across clients
+- **Node.js** - JavaScript runtime for server-side development
+- **Express.js** - Fast, unopinionated web framework for Node.js
+- **MongoDB** - NoSQL document database for flexible data storage
+- **Mongoose** - Elegant MongoDB object modeling for Node.js
+- **JWT** - JSON Web Tokens for secure authentication
+- **bcryptjs** - Password hashing for security
 
 ### AI & External Services
 - **Google Gemini AI** - Advanced AI for mental health conversations
-- **Supabase Edge Functions** - Serverless functions for AI integration
-- **Deno Runtime** - Modern, secure runtime for edge functions
+- **Axios** - Promise-based HTTP client for API requests
 
 ### Development Tools
 - **ESLint** - Code linting and quality enforcement
@@ -58,15 +59,15 @@ A comprehensive mental health and wellness platform designed to support users on
 
 ### Deployment & Infrastructure
 - **Netlify** - Frontend hosting and deployment
-- **Supabase Cloud** - Managed backend infrastructure
-- **Edge Functions** - Global serverless function deployment
+- **MongoDB Atlas** - Cloud-hosted MongoDB database
+- **Heroku/Railway** - Backend hosting and deployment
 - **CDN** - Global content delivery for optimal performance
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 - Node.js 18+ and npm
-- Supabase account
+- MongoDB database (local or Atlas)
 - Google AI API key (for AI assistant)
 
 ### Installation
@@ -82,29 +83,52 @@ A comprehensive mental health and wellness platform designed to support users on
    npm install
    ```
 
-3. **Set up Supabase**
-   - Create a new Supabase project
-   - Run the database migrations from `supabase/migrations/`
-   - Copy your Supabase URL and anon key
+3. **Set up MongoDB**
+   - Install MongoDB locally or create a MongoDB Atlas account
+   - Create a new database called `uplift_wellbeing`
+   - Get your MongoDB connection string
 
-4. **Configure environment variables**
+4. **Set up the backend**
    ```bash
-   # Create .env file with your Supabase credentials
-   VITE_SUPABASE_URL=your_supabase_url
-   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+   cd server
+   npm install
+   
+   # Create .env file with your configuration
+   cp .env.example .env
+   # Edit .env with your MongoDB URI and other settings
    ```
 
-5. **Set up AI Assistant (Optional)**
-   - Get a Google AI API key
-   - Add it to your Supabase project secrets as `GEMINI_API_KEY`
-
-6. **Start development server**
+5. **Configure environment variables**
    ```bash
+   # Frontend (.env)
+   VITE_API_URL=http://localhost:5000/api
+   
+   # Backend (server/.env)
+   MONGODB_URI=mongodb://localhost:27017/uplift_wellbeing
+   JWT_SECRET=your_super_secret_jwt_key_here
+   GEMINI_API_KEY=your_gemini_api_key_here
+   ```
+
+6. **Seed the database (optional)**
+   ```bash
+   cd server
+   npm run build
+   node dist/scripts/seedCrisisResources.js
+   ```
+
+7. **Start the development servers**
+   ```bash
+   # Terminal 1 - Backend
+   cd server
+   npm run dev
+   
+   # Terminal 2 - Frontend
    npm run dev
    ```
 
-7. **Open your browser**
-   Navigate to `http://localhost:8080`
+8. **Open your browser**
+   - Frontend: `http://localhost:8080`
+   - Backend API: `http://localhost:5000`
 
 ## 📱 Usage
 
@@ -124,11 +148,12 @@ A comprehensive mental health and wellness platform designed to support users on
 
 ## 🔒 Privacy & Security
 
-- **End-to-End Encryption**: All personal data is encrypted
-- **HIPAA Compliance**: Designed with healthcare privacy standards
+- **Password Hashing**: Secure password storage with bcryptjs
+- **JWT Authentication**: Secure token-based authentication
+- **Data Validation**: Input validation and sanitization
 - **Anonymous Options**: Share in community without revealing identity
 - **Data Ownership**: You control your data and can export/delete anytime
-- **Secure Authentication**: Industry-standard security practices
+- **CORS Protection**: Cross-origin request security
 
 ## 🤝 Contributing
 
@@ -137,14 +162,15 @@ We welcome contributions to make Uplift better for everyone!
 ### Development Guidelines
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Follow TypeScript and ESLint conventions
+3. Follow TypeScript conventions for both frontend and backend
 4. Write meaningful commit messages
 5. Test your changes thoroughly
 6. Submit a pull request
 
 ### Code Style
-- Use TypeScript for all new code
+- Use TypeScript for both frontend and backend
 - Follow existing component patterns
+- Use proper error handling in API routes
 - Maintain accessibility standards
 - Write self-documenting code with clear variable names
 
