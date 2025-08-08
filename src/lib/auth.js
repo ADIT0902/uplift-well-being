@@ -12,7 +12,7 @@ class AuthManager {
   }
 
   async initializeAuth() {
-    const token = localStorage.getItem('auth_token');
+    const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
     if (token) {
       try {
         apiClient.setToken(token);

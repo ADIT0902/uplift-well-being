@@ -14,7 +14,10 @@ router.post('/chat', authenticate, async (req, res) => {
 
     const geminiApiKey = process.env.GEMINI_API_KEY;
     if (!geminiApiKey) {
-      return res.status(500).json({ error: 'AI service is currently unavailable' });
+      console.warn('⚠️ GEMINI_API_KEY not configured - AI chat will not work');
+      return res.status(503).json({ 
+        error: 'AI service is currently unavailable. Please configure GEMINI_API_KEY in your environment variables.' 
+      });
     }
 
     // Enhanced system prompt for better mental health support

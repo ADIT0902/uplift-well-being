@@ -90,11 +90,17 @@ const AIChat: React.FC<AIChatProps> = ({ compact = false }) => {
     } catch (error: any) {
       console.error('Error sending message:', error);
       
+      let errorMessage = "I'm sorry, I'm having trouble responding right now. Please try again in a moment.";
+      
+      if (error.message?.includes('AI service is currently unavailable')) {
+        errorMessage = "AI service is not configured. Please check with your administrator to set up the Gemini API key.";
+      }
+      
       // Add error message to chat
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: "I'm sorry, I'm having trouble responding right now. Please try again in a moment.",
+        content: errorMessage,
         timestamp: new Date()
       };
       
